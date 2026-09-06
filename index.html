@@ -199,9 +199,9 @@ body{
   <div id="lock">
     <div class="lk-clock" id="lkClock">11:46</div>
     <div class="lk-date" id="lkDate">9月5日(土)</div>
-    <div class="pin-title">PINを入力</div>
+    <div class="pin-title">パスワードを入力してください</div>
     <div class="pin-dots" id="dots"></div>
-    <div class="pin-err" id="err">PINが正しくありません</div>
+    <div class="pin-err" id="err">パスワードが違います</div>
     <div class="pin-pad" id="pad"></div>
   </div>
 
@@ -679,7 +679,7 @@ function renderDots() {
   const cells = [1, 2, 3, 4, 5, 6, 7, 8, 9, 'emg', 0, 'del'];
   cells.forEach((c) => {
     const k = document.createElement('div');
-    if (c === 'emg') { k.className = 'pkey side'; k.dataset.act = 'emg'; k.textContent = '緊急電話'; }
+    if (c === 'emg') { k.className = 'pkey side'; k.dataset.act = 'emg'; k.textContent = '緊急通報'; }
     else if (c === 'del') {
       k.className = 'pkey'; k.dataset.act = 'del';
       k.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><path d="M9 5h11a1.6 1.6 0 0 1 1.6 1.6v10.8A1.6 1.6 0 0 1 20 19H9L2.6 12 9 5Z"/><path d="m12.4 9.6 5 4.8M17.4 9.6l-5 4.8"/></svg>';
