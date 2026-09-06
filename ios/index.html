@@ -46,7 +46,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display"
   100%{transform:translate(-50%,-50%) translateX(0)}}
 
 /* キーパッドのタップ領域（見えない） */
-.hit{position:absolute;transform:translate(-50%,-50%);z-index:4;cursor:pointer}
+.hit{position:absolute;transform:translate(-50%,-50%);z-index:4;cursor:pointer;
+  touch-action:none;-webkit-user-select:none;user-select:none}
 .hit i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   border-radius:50%;background:rgba(255,255,255,.42);opacity:0;transition:opacity .12s ease}
 .hit.press i{opacity:1;transition:none}
@@ -426,23 +427,47 @@ function longPress(el, ms, fn, filter) {
     t = setTimeout(() => { t = null; fn(); }, ms);
   });
   window.addEventListener('pointermove', (e) => {
-    if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 12) cancel();
+    if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 30) cancel();
   });
   window.addEventListener('pointerup', cancel);
   window.addEventListener('pointercancel', cancel);
+}
+
+/* 押している時間で判定する長押し。タイマーが端末側の pointercancel で
+   潰されても、指を離した時点の経過時間で拾い直す。 */
+function holdToggle(el, ms, fn) {
+  let t = null, t0 = 0, sx = 0, sy = 0, done = false, active = false;
+  const clear = () => { if (t) { clearTimeout(t); t = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    active = true; done = false; t0 = Date.now();
+    sx = e.clientX; sy = e.clientY;
+    clear();
+    t = setTimeout(() => { t = null; done = true; fn(); }, ms);
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (active && Math.hypot(e.clientX - sx, e.clientY - sy) > 70) { active = false; clear(); }
+  });
+  window.addEventListener('pointerup', () => {
+    if (!active) { clear(); return; }
+    active = false; clear();
+    if (!done && Date.now() - t0 >= ms) fn();
+  });
+  /* 端末側が pointercancel を出しても、押しっぱなしならタイマーは活かす。
+     ただし押下状態は畳んでおかないと、次の無関係な指離しで誤発火する。 */
+  window.addEventListener('pointercancel', () => { active = false; });
 }
 
 /* ロック画面：キー以外を1秒長押し → リセット */
 longPress($('lock'), 1000, () => { if (!st.unlocked) relock(); },
           (e) => !e.target.closest('.hit'));
 /* ロック画面：「緊急」を長押し → 4桁 / 6桁 切り替え */
-longPress(emgHit, 800, () => {
+holdToggle(emgHit, 700, () => {
   if (st.busy || st.unlocked) return;
   st.len = (st.len === 6) ? 4 : 6;
   st.input = '';
   errEl().style.opacity = '0';
   renderDots();
-  buzz(14);
+  buzz([16, 70, 16]);
 });
 /* ホーム画面：どこでも1秒長押し → ロック画面に戻す */
 longPress($('home'), 1000, () => { if (st.unlocked) relock(); });
