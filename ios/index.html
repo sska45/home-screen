@@ -20,7 +20,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text"
   "Hiragino Kaku Gothic ProN",system-ui,"Helvetica Neue",Arial,sans-serif;
   color:#fff;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   -webkit-font-smoothing:antialiased}
-#app{position:fixed;inset:0;overflow:hidden;touch-action:none;isolation:isolate;
+#app{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;
+  touch-action:none;isolation:isolate;
   --k:clamp(60px,min(21.5vw,9.4vh),82px)}
 
 /* ---------------- 壁紙 ---------------- */
@@ -608,8 +609,33 @@ function goPage(i, animate) {
   if (animate === false) { void pagesEl.offsetWidth; pagesEl.style.transition = ''; }
   pdEls().forEach((d, n) => d.classList.toggle('on', n === cur));
 }
+/* 全画面移行後にビューポート高が更新されない端末向けの保険 */
+function isStandalone() {
+  if (navigator.standalone === true) return true;
+  try {
+    return matchMedia('(display-mode: standalone)').matches ||
+           matchMedia('(display-mode: fullscreen)').matches;
+  } catch (e) { return false; }
+}
+function fitViewport() {
+  let h = window.innerHeight;
+  if (isStandalone()) {
+    const sh = Math.round(screen.height);
+    if (sh > h && sh - h < h * 0.15) h = sh;
+  }
+  const app = $('app');
+  app.style.height = h + 'px';
+  app.style.width = window.innerWidth + 'px';
+}
+function relayout() { fitViewport(); goPage(cur, false); }
+fitViewport();
 goPage(0, false);
-window.addEventListener('resize', () => goPage(cur, false));
+window.addEventListener('resize', relayout);
+window.addEventListener('orientationchange', relayout);
+document.addEventListener('fullscreenchange', relayout);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) relayout(); });
+try { visualViewport.addEventListener('resize', relayout); } catch (e) {}
+[120, 400, 1200, 2500].forEach((ms) => setTimeout(relayout, ms));
 
 pagesEl.addEventListener('pointerdown', (e) => {
   if (!st.unlocked) return;

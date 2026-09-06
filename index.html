@@ -20,7 +20,8 @@ body{
   font-family:"SamsungOne","One UI Sans","Samsung Sans",system-ui,-apple-system,"Noto Sans JP","Hiragino Sans",Roboto,"Helvetica Neue",Arial,sans-serif;
   color:#fff;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   -webkit-font-smoothing:antialiased}
-#app{position:fixed;inset:0;overflow:hidden;touch-action:none;isolation:isolate;
+#app{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;
+  touch-action:none;isolation:isolate;
   --k:clamp(58px,min(21vw,9.2vh),80px)}
 
 /* ---------------- 壁紙 ---------------- */
@@ -548,6 +549,19 @@ function isFullscreen() {
   return false;
 }
 
+/* 全画面に入った直後、Chrome がビューポート高を更新しないことがある。
+   実際には画面全体が描画対象なので、画面高に合わせて自前で伸ばす。 */
+function fitViewport() {
+  const app = $('app');
+  let h = window.innerHeight;
+  if (isFullscreen()) {
+    const sh = Math.round(screen.height);
+    if (sh > h && sh - h < h * 0.15) h = sh;   // 差が小さいときだけ採用
+  }
+  app.style.height = h + 'px';
+  app.style.width = window.innerWidth + 'px';
+}
+
 /* 画像内の y(%) → ページ内の y(%) */
 let crop = { t: 0, b: 100 };
 function updateCrop() {
@@ -562,6 +576,7 @@ const mapY = (imgPct) => (imgPct - crop.t) * 100 / span();
 /* オーバーレイの位置・サイズをページの実寸に合わせて再計算 */
 function layoutOverlays() {
   if (!shotMode) return;
+  fitViewport();
   updateCrop();
   const pw = pagesEl.getBoundingClientRect().width / 2;
   const ph = pagesEl.getBoundingClientRect().height;
@@ -611,6 +626,11 @@ function applyShots(imgs) {
     page.appendChild(im);
     ovs.forEach((o) => page.appendChild(buildOverlay(o, src, im0)));
   });
+  const edge = samplePx(imgs[0], 50, 99.6);
+  if (edge) {
+    document.documentElement.style.background = edge;
+    document.body.style.background = edge;
+  }
   $('home').classList.add('shots');
   shotMode = true;
   layoutOverlays();
@@ -818,9 +838,19 @@ function goPage(i, animate) {
   piEls().forEach((d, n) => d.classList.toggle('on', n === cur));
 }
 goPage(0, false);
-window.addEventListener('resize', () => { goPage(cur, false); layoutOverlays(); });
-document.addEventListener('fullscreenchange', () => layoutOverlays());
-try { matchMedia('(display-mode: fullscreen)').addEventListener('change', () => layoutOverlays()); } catch (e) {}
+function relayout() { fitViewport(); goPage(cur, false); layoutOverlays(); }
+window.addEventListener('resize', relayout);
+window.addEventListener('orientationchange', relayout);
+document.addEventListener('fullscreenchange', relayout);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) relayout(); });
+try { matchMedia('(display-mode: fullscreen)').addEventListener('change', relayout); } catch (e) {}
+try {
+  visualViewport.addEventListener('resize', relayout);
+  visualViewport.addEventListener('scroll', relayout);
+} catch (e) {}
+try { new ResizeObserver(() => layoutOverlays()).observe($('app')); } catch (e) {}
+/* 全画面移行がレイアウトより遅れる端末向けに、少し遅らせて測り直す */
+[120, 400, 1200, 2500].forEach((ms) => setTimeout(relayout, ms));
 
 pagesEl.addEventListener('pointerdown', (e) => {
   if (!st.unlocked) return;
