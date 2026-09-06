@@ -68,6 +68,15 @@ body{
   100%{transform:translate(-50%,-50%) translateX(0)}}
 
 /* キーの上に置く見えないタップ領域 */
+/* バッテリー（スクショの表示を消して、実機の残量で描き直す） */
+.bw{position:absolute;transform:translate(-50%,-50%);z-index:5;pointer-events:none}
+.bp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.55);border-radius:999px}
+.bp i{position:absolute;left:0;top:0;bottom:0;background:#fff;border-radius:999px}
+.bp span{position:relative;z-index:2;color:#141414;font-weight:700;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+
 .hit{position:absolute;transform:translate(-50%,-50%);z-index:4;cursor:pointer;
   touch-action:none;-webkit-user-select:none;user-select:none}
 .hit i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -253,8 +262,18 @@ const LOCK = {
   pad:  { col:[24.68, 49.88, 75.38], row:[44.16, 54.82, 65.48, 76.14],
           cw:24.0, ch:10.4, circle:22.0 },
   emg:  { x:17.84, y:89.05, w:22, h:6.4 },
-  del:  { x:84.13, y:88.97, w:18, h:6.4 }
+  del:  { x:84.13, y:88.97, w:18, h:6.4 },
+  /* バッテリー：ピルの実測位置と、消すための枠 */
+  batt: { patch:{x:91.75, y:2.30, w:7.6, h:2.8,
+                 sa:{x:87.80, y:2.30}, sb:{x:96.20, y:2.30}},
+          pill: {x:91.75, y:2.31, w:6.5, h:1.81} }
 };
+
+/* ホーム画面（869x1883）側のバッテリー。
+   sa / sb は塗りつぶしの色を拾う位置（信号バーに当たらない場所を実測で指定）。 */
+const HOME_BATT = { patch:{x:91.95, y:2.32, w:7.0, h:2.6,
+                           sa:{x:88.45, y:2.32}, sb:{x:95.80, y:2.32}},
+                    pill: {x:91.95, y:2.32, w:5.9, h:1.59} };
 
 const OV = {
   p1: [
@@ -632,6 +651,8 @@ function applyShots(imgs) {
   });
   EDGE.home = samplePx(imgs[0], 50, 99.3);
   applyEdge();
+  [[$('page0'), imgs[0]], [$('page1'), imgs[1]]].forEach(([pg, im]) => makeBattery(pg, HOME_BATT, im));
+  renderBattery();
   $('home').classList.add('shots');
   shotMode = true;
   layoutOverlays();
@@ -648,6 +669,71 @@ function applyShots(imgs) {
     i.src = s;
   }))).then(applyShots).catch(() => { /* 画像が無ければ自作アイコン版のまま */ });
 })();
+
+/* =====================================================================
+   バッテリー：スクショの表示を消し、実機の残量で描き直す
+   ===================================================================== */
+const batts = [];   // {wrap, pill, fill, tx, g, img}
+
+function makeBattery(host, g, img) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bw';
+  const pill = document.createElement('div');
+  pill.className = 'bp';
+  const fill = document.createElement('i');
+  const tx = document.createElement('span');
+  pill.appendChild(fill);
+  pill.appendChild(tx);
+  wrap.appendChild(pill);
+  host.appendChild(wrap);
+  const rec = { wrap, pill, fill, tx, g, img };
+  batts.push(rec);
+  const paint = () => {
+    if (!img.naturalWidth) return;
+    const sa = g.patch.sa || { x: g.patch.x - g.patch.w * 0.56, y: g.patch.y };
+    const sb = g.patch.sb || { x: g.patch.x + g.patch.w * 0.56, y: g.patch.y };
+    const a = samplePx(img, sa.x, sa.y);
+    const b = samplePx(img, sb.x, sb.y);
+    if (a && b) wrap.style.background = 'linear-gradient(90deg,' + a + ',' + b + ')';
+  };
+  if (img.complete) paint(); else img.addEventListener('load', paint);
+  return rec;
+}
+
+let battLevel = 93;
+function renderBattery() {
+  const pct = Math.max(0, Math.min(100, Math.round(battLevel)));
+  batts.forEach((b) => {
+    b.fill.style.width = pct + '%';
+    b.tx.textContent = pct;
+  });
+}
+if (navigator.getBattery) {
+  navigator.getBattery().then((b) => {
+    const upd = () => { battLevel = b.level * 100; renderBattery(); };
+    upd();
+    b.addEventListener('levelchange', upd);
+  }).catch(() => {});
+}
+
+function layoutBatteries() {
+  const r = $('app').getBoundingClientRect();
+  const pw = r.width, ph = r.height;
+  if (!pw || !ph) return;
+  let my = (v) => v;
+  try { if (shotMode) my = mapY; } catch (e) {}
+  batts.forEach((b) => {
+    const p = b.g.patch, q = b.g.pill;
+    b.wrap.style.left = (pw * p.x / 100) + 'px';
+    b.wrap.style.top = (ph * my(p.y) / 100) + 'px';
+    b.wrap.style.width = (pw * p.w / 100) + 'px';
+    b.wrap.style.height = (ph * p.h / 100) + 'px';
+    const hh = ph * q.h / 100;
+    b.pill.style.width = (pw * q.w / 100) + 'px';
+    b.pill.style.height = hh + 'px';
+    b.tx.style.fontSize = (hh * 0.72) + 'px';
+  });
+}
 
 /* =====================================================================
    時計・バッテリー
@@ -691,6 +777,7 @@ const lockEl = $('lock');
   im.src = LOCK.img;
   im.addEventListener('load', () => { EDGE.lock = samplePx(im, 50, 99.3); applyEdge(); });
   lockEl.appendChild(im);
+  makeBattery(lockEl, LOCK.batt, im);
 })();
 
 const dotsEl = document.createElement('div');
@@ -907,7 +994,7 @@ function goPage(i, animate) {
   piEls().forEach((d, n) => d.classList.toggle('on', n === cur));
 }
 goPage(0, false);
-function relayout() { fitViewport(); goPage(cur, false); layoutOverlays(); layoutLock(); }
+function relayout() { fitViewport(); goPage(cur, false); layoutOverlays(); layoutLock(); layoutBatteries(); }
 window.addEventListener('resize', relayout);
 window.addEventListener('orientationchange', relayout);
 document.addEventListener('fullscreenchange', relayout);
@@ -917,7 +1004,7 @@ try {
   visualViewport.addEventListener('resize', relayout);
   visualViewport.addEventListener('scroll', relayout);
 } catch (e) {}
-try { new ResizeObserver(() => { layoutOverlays(); layoutLock(); }).observe($('app')); } catch (e) {}
+try { new ResizeObserver(() => { layoutOverlays(); layoutLock(); layoutBatteries(); }).observe($('app')); } catch (e) {}
 /* 全画面移行がレイアウトより遅れる端末向けに、少し遅らせて測り直す */
 [120, 400, 1200, 2500].forEach((ms) => setTimeout(relayout, ms));
 
