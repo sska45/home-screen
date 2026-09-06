@@ -95,7 +95,6 @@ const GEO = {
   magic:  { x:14.89, y:53.55, w:17, h:1.9, src:{x:14.89, y:55.8}, size:2.80 },
   dotrow: { x:50.0,  y:27.44, w:60, h:3.2 },
   dot:    { d:3.52, pitch:9.62 },
-  err:    { x:50.0,  y:31.6, w:60, h:2.2, size:2.55 },
   pad:    { col:[22.39, 49.82, 77.14], row:[40.16, 51.45, 62.74, 74.03],
             cw:26.5, ch:11.0, circle:24.5 },
   cancel: { x:77.5,  y:93.0, w:26, h:4.2 },
@@ -209,7 +208,6 @@ addShot(lockEl, CFG.shots.lock);
 addPatch(lockEl, GEO.clock, CFG.shots.lock, 'clock',
          SA ? {} : { text: '', weight: 600, color: '#fff', id: 'clkLock' });
 if (SA) GEO.standalonePatches.forEach((k) => addPatch(lockEl, GEO[k], CFG.shots.lock, 'patch', {}));
-addText(lockEl, GEO.err, 'err', { text: 'パスコードが違います', color: '#fff', id: 'err', hidden: true });
 
 const dotsEl = document.createElement('div');
 dotsEl.id = 'dots';
@@ -347,7 +345,8 @@ setInterval(tick, 1000);
    ロック解除のロジック
    ===================================================================== */
 const st = { len: CFG.defaultLen, input: '', tries: 0, first: '', busy: false, unlocked: false };
-const errEl = () => $('err').parentElement;
+/* 失敗しても文字は出さず、丸の横揺れだけで伝える */
+const errEl = () => ({ style: {} });
 
 function renderDots() {
   /* 壁紙側からリングを消してあるので、桁数ぶんの丸をこちらで描く */

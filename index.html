@@ -252,8 +252,7 @@ const LOCK = {
   pad:  { col:[24.68, 49.88, 75.38], row:[44.16, 54.82, 65.48, 76.14],
           cw:24.0, ch:10.4, circle:22.0 },
   emg:  { x:17.84, y:89.05, w:22, h:6.4 },
-  del:  { x:84.13, y:88.97, w:18, h:6.4 },
-  err:  { x:50.0,  y:39.4,  w:70, h:2.6, size:2.9 }
+  del:  { x:84.13, y:88.97, w:18, h:6.4 }
 };
 
 const OV = {
@@ -691,13 +690,9 @@ const dotsEl = document.createElement('div');
 dotsEl.id = 'dots';
 lockEl.appendChild(dotsEl);
 
-const errEl = document.createElement('div');
-errEl.className = 'ov';
-errEl.style.pointerEvents = 'none';
-errEl.style.opacity = '0';
-errEl.innerHTML = '<span class="ovtx" id="err" style="color:#ff9a92">パスワードが違います</span>';
-lockEl.appendChild(errEl);
-const lockNodes = [{ el: errEl, g: LOCK.err, tx: errEl.firstChild }];
+/* 失敗しても文字は出さず、丸の横揺れだけで伝える */
+const errEl = { style: {} };
+const lockNodes = [];
 
 function addHit(cx, cy, w, h, fn, circle) {
   const el = document.createElement('div');
