@@ -799,8 +799,8 @@ function longPress(el, ms, fn, filter) {
   window.addEventListener('pointercancel', cancel);
 }
 
-/* ロック画面：数字キー以外を3秒長押し → リセット */
-longPress($('lock'), 3000, () => { if (!st.unlocked) relock(); },
+/* ロック画面：数字キー以外を1秒長押し → リセット */
+longPress($('lock'), 1000, () => { if (!st.unlocked) relock(); },
           (e) => !e.target.closest('.pkey'));
 
 /* ロック画面：「緊急電話」を長押し → 4桁 / 6桁 切り替え */
@@ -813,8 +813,8 @@ longPress($('lock'), 800, () => {
   buzz(14);
 }, (e) => !!e.target.closest('[data-act="emg"]'));
 
-/* ホーム画面：どこでも3秒長押し → ロック画面に戻す（再演用） */
-longPress($('home'), 3000, () => { if (st.unlocked) relock(); });
+/* ホーム画面：どこでも1秒長押し → ロック画面に戻す（再演用） */
+longPress($('home'), 1000, () => { if (st.unlocked) relock(); });
 
 window.addEventListener('keydown', (e) => {
   if (st.unlocked) return;
