@@ -39,18 +39,6 @@ body{
   background-position:22px 41px, 96px 127px}
 .wall.dim::before{content:"";position:absolute;inset:0;z-index:1;background:rgba(28,28,30,.42)}
 
-/* ---------------- ステータスバー ---------------- */
-.statusbar{position:absolute;top:0;left:0;right:0;z-index:40;
-  height:calc(30px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);
-  display:flex;align-items:center;justify-content:space-between;
-  padding-left:22px;padding-right:18px;font-size:13.5px;font-weight:600;
-  letter-spacing:.1px;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28)}
-.sb-r{display:flex;align-items:center;gap:5px}
-.sb-r svg{display:block}
-.batt{display:flex;align-items:center;gap:2px;background:rgba(255,255,255,.92);color:#1c1c1e;
-  border-radius:9px;padding:1px 6px 1px 4px;font-size:11px;font-weight:700;line-height:1.35}
-.batt svg{width:9px;height:11px}
-
 /* ---------------- ロック画面（One UI 風） ---------------- */
 #lock{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
   padding-top:calc(env(safe-area-inset-top) + clamp(24px,7vh,72px));
@@ -91,9 +79,6 @@ body{
 .ov .ovsrc{position:absolute;max-width:none}
 .ov .ovtx{position:relative;z-index:2;white-space:nowrap;line-height:1;font-variant-numeric:tabular-nums}
 #home.shots .pageind,#home.shots .dock{display:none}
-#app.bars .statusbar{display:none}
-.hot{display:none;position:absolute;left:28%;right:28%;bottom:15%;height:7%;z-index:15}
-#home.shots .hot{display:block}
 
 /* ---------------- ホーム画面 ---------------- */
 #home{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;
@@ -212,15 +197,6 @@ body{
 
 
   <div id="lock">
-  <div class="statusbar">
-    <div id="sbTime">11:46</div>
-    <div class="sb-r">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M12 4 7.5 8H4v8h3.5L12 20V4Z"/><path d="M16 6.5 20.5 17M20.5 6.5 16 17" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
-      <svg width="17" height="14" viewBox="0 0 20 16" fill="#fff"><path d="M10 14.6 7.6 12a3.4 3.4 0 0 1 4.8 0l-2.4 2.6Zm4.3-4.7a6.9 6.9 0 0 0-8.6 0L3.9 8.1a9.5 9.5 0 0 1 12.2 0l-1.8 1.8ZM18 6 16.2 7.8a11.3 11.3 0 0 0-12.4 0L2 6a13.8 13.8 0 0 1 16 0Z"/><text x="15" y="7" font-size="7" font-weight="700" fill="#fff">5</text></svg>
-      <svg width="16" height="13" viewBox="0 0 18 13" fill="#fff"><rect x="0" y="9" width="3" height="4" rx=".8"/><rect x="5" y="6.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3.5" width="3" height="9.5" rx=".8"/><rect x="15" y=".5" width="3" height="12.5" rx=".8"/></svg>
-      <span class="batt"><svg viewBox="0 0 10 14" fill="#1c1c1e"><path d="M6.2 0 1 8h3l-.7 6L9 6H5.6L6.2 0Z"/></svg><span id="sbBatt">39</span></span>
-    </div>
-  </div>
     <div class="lk-clock" id="lkClock">11:46</div>
     <div class="lk-date" id="lkDate">9月5日(土)</div>
     <div class="pin-title">PINを入力</div>
@@ -239,7 +215,6 @@ body{
       <div class="pi"></div>
     </div>
     <div class="dock" id="dock"></div>
-    <div class="hot" id="hot"></div>
   </div>
 </div>
 <script>
@@ -598,12 +573,6 @@ function layoutOverlays() {
     im.style.top = iy + 'px';
     im.style.bottom = 'auto';
   });
-  const hot = $('hot');
-  if (hot) {
-    hot.style.top = (ph * mapY(78.4) / 100) + 'px';
-    hot.style.height = (ph * (mapY(82.2) - mapY(78.4)) / 100) + 'px';
-    hot.style.bottom = 'auto';
-  }
   ovNodes.forEach((el) => {
     const o = el._o;
     const w = pw * o.w / 100, h = ih * o.h / 100;
@@ -665,7 +634,6 @@ function applyShots(imgs) {
 function tick() {
   const d = new Date();
   const hm = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
-  $('sbTime').textContent = hm;
   $('lkClock').textContent = hm;
   $('lkDate').textContent = (d.getMonth() + 1) + '月' + d.getDate() + '日(' + WD[d.getDay()] + ')';
   ovNodes.forEach((el) => {
@@ -690,13 +658,6 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
-if (navigator.getBattery) {
-  navigator.getBattery().then((b) => {
-    const upd = () => { $('sbBatt').textContent = Math.round(b.level * 100); };
-    upd();
-    b.addEventListener('levelchange', upd);
-  }).catch(() => {});
-}
 
 /* =====================================================================
    ロック画面
@@ -770,7 +731,7 @@ function unlock(code) {
 }
 
 function relock() {
-  st.len = CFG.defaultLen; st.input = ''; st.tries = 0; st.first = '';
+  st.input = ''; st.tries = 0; st.first = '';
   st.busy = false; st.unlocked = false;
   const lbl = $('magicLabel');
   if (lbl) lbl.textContent = CFG.magicLabel;
@@ -780,7 +741,7 @@ function relock() {
   $('home').classList.remove('on');
   $('lock').classList.remove('gone');
   goPage(0, false);
-  buzz(12);
+  buzz([18, 60, 18]);
 }
 
 renderDots();
@@ -801,21 +762,39 @@ $('pad').addEventListener('pointerdown', (e) => {
   }
 });
 
-/* 数字以外を2回タップ → 4桁 / 6桁 切り替え */
-let lastTap = 0;
-$('lock').addEventListener('pointerup', (e) => {
-  if (e.target.closest('.pkey')) return;
+/* 長押し検出。指が動いたら取り消す（スワイプで誤爆しないように） */
+function longPress(el, ms, fn, filter) {
+  let t = null, sx = 0, sy = 0;
+  const cancel = () => { if (t) { clearTimeout(t); t = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    if (filter && !filter(e)) return;
+    cancel();
+    sx = e.clientX; sy = e.clientY;
+    t = setTimeout(() => { t = null; fn(); }, ms);
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 12) cancel();
+  });
+  window.addEventListener('pointerup', cancel);
+  window.addEventListener('pointercancel', cancel);
+}
+
+/* ロック画面：数字キー以外を3秒長押し → リセット */
+longPress($('lock'), 3000, () => { if (!st.unlocked) relock(); },
+          (e) => !e.target.closest('.pkey'));
+
+/* ロック画面：「緊急電話」を長押し → 4桁 / 6桁 切り替え */
+longPress($('lock'), 800, () => {
   if (st.busy || st.unlocked) return;
-  const now = Date.now();
-  if (now - lastTap < 450) {
-    lastTap = 0;
-    st.len = (st.len === 6) ? 4 : 6;
-    st.input = '';
-    errEl.classList.remove('on');
-    renderDots();
-    buzz(14);
-  } else lastTap = now;
-});
+  st.len = (st.len === 6) ? 4 : 6;
+  st.input = '';
+  errEl.classList.remove('on');
+  renderDots();
+  buzz(14);
+}, (e) => !!e.target.closest('[data-act="emg"]'));
+
+/* ホーム画面：どこでも3秒長押し → ロック画面に戻す（再演用） */
+longPress($('home'), 3000, () => { if (st.unlocked) relock(); });
 
 window.addEventListener('keydown', (e) => {
   if (st.unlocked) return;
@@ -877,13 +856,6 @@ $('pageind').addEventListener('pointerup', (e) => {
   if (i >= 0) goPage(i);
 });
 
-/* ページインジケータを1秒長押し → ロック画面に戻す（再演用） */
-let holdT = null;
-[$('pageind'), $('hot')].forEach((z) => {
-  z.addEventListener('pointerdown', () => { holdT = setTimeout(relock, 1000); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
-    z.addEventListener(ev, () => clearTimeout(holdT)));
-});
 
 /* =====================================================================
    その他
