@@ -548,14 +548,22 @@ function isFullscreen() {
 /* 全画面に入った直後、Chrome がビューポート高を更新しないことがある。
    実際には画面全体が描画対象なので、画面高に合わせて自前で伸ばす。 */
 function fitViewport() {
+  /* 描画できるのはビューポートの中だけ。大きく広げると画像の下端が隠れるので、
+     ぴったり合わせたうえで、外側に残る帯は下端の色で塗って目立たなくする。 */
   const app = $('app');
-  let h = window.innerHeight;
-  if (isFullscreen()) {
-    const sh = Math.round(screen.height);
-    if (sh > h && sh - h < h * 0.15) h = sh;   // 差が小さいときだけ採用
-  }
-  app.style.height = h + 'px';
+  app.style.height = window.innerHeight + 'px';
   app.style.width = window.innerWidth + 'px';
+}
+
+/* 画面の外側に残る帯を、いま表示している画面の下端の色で塗る */
+const EDGE = { lock: null, home: null };
+function applyEdge() {
+  let locked = true;
+  try { locked = !st.unlocked; } catch (e) {}
+  const c = locked ? EDGE.lock : EDGE.home;
+  if (!c) return;
+  document.documentElement.style.background = c;
+  document.body.style.background = c;
 }
 
 /* 画像内の y(%) → ページ内の y(%) */
@@ -622,11 +630,8 @@ function applyShots(imgs) {
     page.appendChild(im);
     ovs.forEach((o) => page.appendChild(buildOverlay(o, src, im0)));
   });
-  const edge = samplePx(imgs[0], 50, 99.6);
-  if (edge) {
-    document.documentElement.style.background = edge;
-    document.body.style.background = edge;
-  }
+  EDGE.home = samplePx(imgs[0], 50, 99.3);
+  applyEdge();
   $('home').classList.add('shots');
   shotMode = true;
   layoutOverlays();
@@ -684,6 +689,7 @@ const lockEl = $('lock');
   const im = document.createElement('img');
   im.className = 'shot-img';
   im.src = LOCK.img;
+  im.addEventListener('load', () => { EDGE.lock = samplePx(im, 50, 99.3); applyEdge(); });
   lockEl.appendChild(im);
 })();
 
@@ -800,6 +806,7 @@ function unlock(code) {
   $('lock').classList.add('gone');
   $('home').classList.add('on');
   goPage(0, false);
+  applyEdge();
 }
 
 function relock() {
@@ -813,6 +820,7 @@ function relock() {
   $('home').classList.remove('on');
   $('lock').classList.remove('gone');
   goPage(0, false);
+  applyEdge();
   buzz([18, 60, 18]);
 }
 

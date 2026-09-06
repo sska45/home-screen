@@ -121,14 +121,22 @@ const SA = isStandalone();
    画面の実寸に合わせる
    ===================================================================== */
 function fitViewport() {
-  let h = window.innerHeight;
-  if (SA) {
-    const sh = Math.round(screen.height);
-    if (sh > h && sh - h < h * 0.15) h = sh;
-  }
+  /* 描画できるのはビューポートの中だけ。大きく広げると画像の下端が隠れるので、
+     ぴったり合わせたうえで、外側に残る帯は下端の色で塗って目立たなくする。 */
   const app = $('app');
-  app.style.height = h + 'px';
+  app.style.height = window.innerHeight + 'px';
   app.style.width = window.innerWidth + 'px';
+}
+
+/* 画面の外側に残る帯を、いま表示している画面の下端の色で塗る */
+const EDGE = { lock: null, home: null };
+function applyEdge() {
+  let locked = true;
+  try { locked = !st.unlocked; } catch (e) {}
+  const c = locked ? EDGE.lock : EDGE.home;
+  if (!c) return;
+  document.documentElement.style.background = c;
+  document.body.style.background = c;
 }
 
 /* =====================================================================
@@ -321,6 +329,11 @@ function biFill(im, g) {
 
 /* 画像が読めたら塗りつぶしの色を確定させる */
 function applyGradients() {
+  const lockImg = document.querySelector('#lock .shot-img');
+  const homeImg = document.querySelector('#page0 .shot-img');
+  if (lockImg && lockImg.naturalWidth) EDGE.lock = samplePx(lockImg, 50, 99.3);
+  if (homeImg && homeImg.naturalWidth) EDGE.home = samplePx(homeImg, 50, 99.3);
+  applyEdge();
   nodes.forEach((n) => {
     if (!n.el.dataset || n.el.dataset.fill !== 'bi') return;
     const host = n.el.parentElement;
@@ -399,6 +412,7 @@ function unlock(code) {
   $('lock').classList.add('gone');
   $('home').classList.add('on');
   goPage(0, false);
+  applyEdge();
 }
 
 function relock() {
@@ -411,6 +425,7 @@ function relock() {
   $('home').classList.remove('on');
   $('lock').classList.remove('gone');
   goPage(0, false);
+  applyEdge();
   buzz([18, 60, 18]);
 }
 
