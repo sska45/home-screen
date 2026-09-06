@@ -269,6 +269,16 @@ const LOCK = {
           pill: {x:91.75, y:2.31, w:6.5, h:1.81} }
 };
 
+/* ロック画面のスクショは生成画像のため、ミュート・Wi-Fi・電波のアイコンが崩れている。
+   本物のホーム画面のスクショから切り出して移植する枠（画像に対する %）。
+   sa / sb は下地の色を拾う位置。 */
+const ICONS_GEO = {
+  /* 生成画像側のアイコンは 74.74%〜87.14% にあるので、そこを覆って壁紙で塗る */
+  patch: { x:81.00, y:2.31, w:13.0, h:2.1 },
+  /* 本物のスクショから切り出す範囲。同じ % 位置にそのまま置く */
+  crop:  { x:81.95, y:2.35, w:12.5, h:2.4 }
+};
+
 /* ホーム画面（869x1883）側のバッテリー。
    sa / sb は塗りつぶしの色を拾う位置（信号バーに当たらない場所を実測で指定）。 */
 const HOME_BATT = { patch:{x:91.95, y:2.32, w:7.0, h:2.6,
@@ -653,6 +663,7 @@ function applyShots(imgs) {
   applyEdge();
   [[$('page0'), imgs[0]], [$('page1'), imgs[1]]].forEach(([pg, im]) => makeBattery(pg, HOME_BATT, im));
   renderBattery();
+  transplantIcons();
   $('home').classList.add('shots');
   shotMode = true;
   layoutOverlays();
@@ -733,6 +744,97 @@ function layoutBatteries() {
     b.pill.style.height = hh + 'px';
     b.tx.style.fontSize = (hh * 0.72) + 'px';
   });
+}
+
+/* =====================================================================
+   ステータスバーのアイコンを本物のスクショから移植する
+   ===================================================================== */
+let iconsWrap = null, iconsImg = null;
+
+/* 白いアイコンだけを抜き出す（下地の明るさを 0、白を 1 として不透明度にする） */
+function extractIcons(src, g) {
+  const SW = src.naturalWidth, SH = src.naturalHeight;
+  const sx = Math.round(SW * (g.x - g.w / 2) / 100), sw = Math.round(SW * g.w / 100);
+  const sy = Math.round(SH * (g.y - g.h / 2) / 100), sh = Math.round(SH * g.h / 100);
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh);
+  let im;
+  try { im = ctx.getImageData(0, 0, sw, sh); } catch (e) { return null; }
+  const D = im.data;
+  /* 下地の明るさ＝暗い方から 10% 目の値 */
+  const lums = [];
+  for (let i = 0; i < D.length; i += 4) lums.push(D[i] * 0.3 + D[i+1] * 0.59 + D[i+2] * 0.11);
+  lums.sort((a, b) => a - b);
+  const bg = lums[Math.floor(lums.length * 0.10)];
+  const span = Math.max(1, 255 - bg);
+  for (let i = 0; i < D.length; i += 4) {
+    const l = D[i] * 0.3 + D[i+1] * 0.59 + D[i+2] * 0.11;
+    let a = (l - bg) / span;
+    a = a < 0 ? 0 : (a > 1 ? 1 : a);
+    D[i] = 255; D[i+1] = 255; D[i+2] = 255; D[i+3] = Math.round(a * 255);
+  }
+  ctx.putImageData(im, 0, 0);
+  return c.toDataURL();
+}
+
+/* 枠のすぐ外側の四隅の色から、なめらかな塗りを作る */
+function biFill(img, g, m) {
+  m = m || 0.5;
+  const cl = (v) => Math.max(0.3, Math.min(99.7, v));
+  const xs = [cl(g.x - g.w / 2 - m), cl(g.x + g.w / 2 + m)];
+  const ys = [cl(g.y - g.h / 2 - m), cl(g.y + g.h / 2 + m)];
+  const c = document.createElement('canvas');
+  c.width = c.height = 2;
+  const ctx = c.getContext('2d');
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+    const col = samplePx(img, xs[i], ys[j]);
+    if (!col) return null;
+    ctx.fillStyle = col;
+    ctx.fillRect(i, j, 1, 1);
+  }
+  return c.toDataURL();
+}
+
+function transplantIcons() {
+  if (iconsWrap) return;
+  const lockImg = document.querySelector('#lock .shot-img');
+  const homeImg = document.querySelector('#page0 .shot-img');
+  if (!lockImg || !lockImg.naturalWidth || !homeImg || !homeImg.naturalWidth) return;
+  const url = extractIcons(homeImg, ICONS_GEO.crop);
+  if (!url) return;
+  iconsWrap = document.createElement('div');
+  iconsWrap.className = 'bw';
+  iconsWrap.style.zIndex = '4';
+  const fill = biFill(lockImg, ICONS_GEO.patch);
+  if (fill) iconsWrap.style.background = 'url(' + fill + ') center / 100% 100% no-repeat';
+  iconsImg = document.createElement('img');
+  iconsImg.src = url;
+  iconsImg.style.cssText = 'position:absolute;display:block';
+  iconsWrap.appendChild(iconsImg);
+  $('lock').appendChild(iconsWrap);
+  layoutIcons();
+}
+
+function layoutIcons() {
+  if (!iconsWrap) return;
+  const r = $('app').getBoundingClientRect();
+  const pw = r.width, ph = r.height;
+  if (!pw || !ph) return;
+  let my = (v) => v;
+  try { if (shotMode) my = mapY; } catch (e) {}
+  const p = ICONS_GEO.patch, q = ICONS_GEO.crop;
+  const pwv = pw * p.w / 100, phv = ph * p.h / 100;
+  iconsWrap.style.left = (pw * p.x / 100) + 'px';
+  iconsWrap.style.top = (ph * my(p.y) / 100) + 'px';
+  iconsWrap.style.width = pwv + 'px';
+  iconsWrap.style.height = phv + 'px';
+  /* 切り出した画像は、元と同じ % 位置に置く */
+  iconsImg.style.left = (pw * (q.x - q.w / 2 - (p.x - p.w / 2)) / 100) + 'px';
+  iconsImg.style.top = (ph * (q.y - q.h / 2 - (p.y - p.h / 2)) / 100) + 'px';
+  iconsImg.style.width = (pw * q.w / 100) + 'px';
+  iconsImg.style.height = (ph * q.h / 100) + 'px';
 }
 
 /* =====================================================================
@@ -994,7 +1096,7 @@ function goPage(i, animate) {
   piEls().forEach((d, n) => d.classList.toggle('on', n === cur));
 }
 goPage(0, false);
-function relayout() { fitViewport(); goPage(cur, false); layoutOverlays(); layoutLock(); layoutBatteries(); }
+function relayout() { fitViewport(); goPage(cur, false); layoutOverlays(); layoutLock(); layoutBatteries(); layoutIcons(); }
 window.addEventListener('resize', relayout);
 window.addEventListener('orientationchange', relayout);
 document.addEventListener('fullscreenchange', relayout);
@@ -1004,7 +1106,7 @@ try {
   visualViewport.addEventListener('resize', relayout);
   visualViewport.addEventListener('scroll', relayout);
 } catch (e) {}
-try { new ResizeObserver(() => { layoutOverlays(); layoutLock(); layoutBatteries(); }).observe($('app')); } catch (e) {}
+try { new ResizeObserver(() => { layoutOverlays(); layoutLock(); layoutBatteries(); layoutIcons(); }).observe($('app')); } catch (e) {}
 /* 全画面移行がレイアウトより遅れる端末向けに、少し遅らせて測り直す */
 [120, 400, 1200, 2500].forEach((ms) => setTimeout(relayout, ms));
 
